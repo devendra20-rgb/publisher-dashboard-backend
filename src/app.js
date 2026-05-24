@@ -11,6 +11,7 @@ const sheetConfigRoutes = require("./routes/sheetConfig.routes");
 const publisherRoutes = require("./routes/publisher.routes");
 const statsRoutes = require("./routes/stats.routes");
 const syncRoutes = require("./routes/sync.routes");
+const publisherDetailRoutes = require("./routes/publisherDetail.routes");
 
 
 const { errorHandler, notFound } = require("./utils/errorHandler");
@@ -27,6 +28,7 @@ app.use("/api/sheets", sheetConfigRoutes);
 app.use("/api/publishers", publisherRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/sync", syncRoutes);
+app.use("/api/publisher-details", publisherDetailRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "Publisher Dashboard API is running." });
