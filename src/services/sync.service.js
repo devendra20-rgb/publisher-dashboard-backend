@@ -14,7 +14,9 @@ const parseDate = (value) => {
   return new Date(`${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`);
 };
 
-
+const normalizeText = (value) => {
+  return value?.trim()?.toLowerCase();
+};
 
 /**
  * Sync all active Google Sheets into MongoDB.
@@ -76,11 +78,13 @@ const syncSingleSheet = async (sheet) => {
   });
 
   // Current publisher names from sheet
-  const incomingPublisherNames = rows.map((row) => row.publisherName);
+  const incomingPublisherNames = rows.map((row) =>
+    normalizeText(row.publisherName),
+  );
 
   // Find removed publishers
   const removedDocs = existingDocs.filter(
-    (doc) => !incomingPublisherNames.includes(doc.publisherName),
+    (doc) => !incomingPublisherNames.includes(normalizeText(doc.publisherName)),
   );
 
   // Mark removed publishers inactive
@@ -102,28 +106,34 @@ const syncSingleSheet = async (sheet) => {
   }
 
   // Build bulk upsert operations
-  const operations = rows.map((row) => ({
-    updateOne: {
-      filter: {
-        publisherName: row.publisherName,
-        sheetId: sheet.sheetId,
-      },
-      update: {
-        $set: {
-          ...row,
-
-          contactDate: parseDate(row.contactDate),
-
-          usedBy: sheet.usedBy,
-
-          sheetId: sheet.sheetId,
-
-          isActive: true,
-        },
-      },
-      upsert: true,
+ const operations = rows.map((row) => ({
+  updateOne: {
+    filter: {
+      publisherName: row.publisherName.trim(),
+      sheetId: sheet.sheetId,
     },
-  }));
+
+    update: {
+      $set: {
+        ...row,
+
+        publisherName:
+          row.publisherName.trim(),
+
+        contactDate:
+          parseDate(row.contactDate),
+
+        usedBy: sheet.usedBy,
+
+        sheetId: sheet.sheetId,
+
+        isActive: true,
+      },
+    },
+
+    upsert: true,
+  },
+}));
 
   await PublisherData.bulkWrite(operations, { ordered: false });
 

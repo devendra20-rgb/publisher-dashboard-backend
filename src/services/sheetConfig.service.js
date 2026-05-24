@@ -1,5 +1,10 @@
 const SheetConfig = require("../models/SheetConfig.model");
 
+
+const PublisherData = require(
+  "../models/PublisherData.model"
+);
+
 /** Return all sheet configs (optionally only active ones) */
 const getAllSheets = async (onlyActive = false) => {
   const filter = onlyActive ? { active: true } : {};
@@ -33,8 +38,35 @@ const toggleActive = async (id) => {
 };
 
 /** Hard delete */
+// const deleteSheet = async (id) => {
+//   return SheetConfig.findByIdAndDelete(id);
+// };
+
 const deleteSheet = async (id) => {
-  return SheetConfig.findByIdAndDelete(id);
+  // Find sheet first
+  const sheet =
+    await SheetConfig.findById(id);
+
+  if (!sheet) return null;
+
+  // Mark all related publishers inactive
+  await PublisherData.updateMany(
+    {
+      sheetId: sheet.sheetId,
+    },
+    {
+      $set: {
+        isActive: false,
+      },
+    }
+  );
+
+  // Delete sheet config
+  await SheetConfig.findByIdAndDelete(
+    id
+  );
+
+  return sheet;
 };
 
 module.exports = {

@@ -11,9 +11,9 @@ const buildFilter = (query) => {
   // ─────────────────────────────────────────────
   // Text filters
   // ─────────────────────────────────────────────
-  if (query.usedBy) {
-    filter.usedBy = query.usedBy;
-  }
+if (query.usedBy) {
+  filter.agencyPOC = query.usedBy;
+}
 
   if (query.market) {
     filter.market = new RegExp(query.market, "i");
