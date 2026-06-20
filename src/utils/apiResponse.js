@@ -1,15 +1,13 @@
-/**
- * Send a successful JSON response.
- */
-const sendSuccess = (res, data = {}, message = "Success", statusCode = 200) => {
-  res.status(statusCode).json({ success: true, message, data });
-};
+function successResponse(res, message, data = {}) {
+  return res.status(200).json({ success: true, message, data });
+}
 
-/**
- * Send an error JSON response.
- */
-const sendError = (res, message = "Something went wrong", statusCode = 500) => {
-  res.status(statusCode).json({ success: false, message });
-};
+function createdResponse(res, message, data = {}) {
+  return res.status(201).json({ success: true, message, data });
+}
 
-module.exports = { sendSuccess, sendError };
+function errorResponse(res, statusCode, message, errors = []) {
+  return res.status(statusCode).json({ success: false, message, errors });
+}
+
+module.exports = { successResponse, createdResponse, errorResponse };

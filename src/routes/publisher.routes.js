@@ -1,29 +1,16 @@
-const express = require("express");
+const express = require('express');
+const authMiddleware = require('../middleware/auth.middleware');
+const validationMiddleware = require('../middleware/validation.middleware');
+const { publisherSchema } = require('../validations/publisher.validation');
+const controller = require('../controllers/publisher.controller');
+
 const router = express.Router();
-const ctrl = require("../controllers/publisher.controller");
-/**
- * GET /api/publishers
- *
- * Filters:
- *   usedBy=Sagar
- *   market=India
- *   status=Active
- *   publisherName=Times
- *   sheetId=abc123
- *
- * Date Filters:
- *   startDate=2026-05-01
- *   endDate=2026-05-20
- *
- * Quick Ranges:
- *   range=last7days
- *   range=last30days
- *   range=thisMonth
- *
- * Pagination:
- *   page=1
- *   limit=20
- */
-router.get("/", ctrl.getAllPublishers);
+router.use(authMiddleware);
+router.get('/', controller.list);
+router.post('/', validationMiddleware(publisherSchema), controller.create);
+router.get('/:id/offers', controller.offers);
+router.get('/:id', controller.details);
+router.put('/:id', validationMiddleware(publisherSchema), controller.update);
+router.delete('/:id', controller.remove);
 
 module.exports = router;

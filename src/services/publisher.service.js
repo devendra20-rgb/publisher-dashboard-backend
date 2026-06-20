@@ -1,116 +1,106 @@
-const PublisherData = require("../models/PublisherData.model");
+const mongoose = require('mongoose');
+const {
+  createPublisher,
+  findPublisherById,
+  listPublishers,
+  updatePublisher,
+  deletePublisher
+} = require('../repositories/publisher.repository');
+const { countOffers, listOffers } = require('../repositories/offer.repository');
 
-/**
- * Build MongoDB filters from query params
- */
-const buildFilter = (query) => {
-  const filter = {
-    isActive: true,
-  };
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const fail = (message, statusCode) => Object.assign(new Error(message), { statusCode });
 
-  // ─────────────────────────────────────────────
-  // Text filters
-  // ─────────────────────────────────────────────
-if (query.usedBy) {
-  filter.agencyPOC = query.usedBy;
+function validId(id) {
+  if (!mongoose.isValidObjectId(id)) throw fail('Invalid publisher ID', 400);
 }
 
-  if (query.market) {
-    filter.market = new RegExp(query.market, "i");
-  }
+function ownerId(resource) {
+  return (resource.createdBy?._id || resource.createdBy)?.toString();
+}
 
-  if (query.status) {
-    filter.status = new RegExp(query.status, "i");
-  }
+function canAccess(user, publisher) {
+  return user.role === 'admin' || ownerId(publisher) === user.id;
+}
 
-  if (query.sheetId) {
-    filter.sheetId = query.sheetId;
-  }
+function pagination(query) {
+  const page = Math.max(1, Number(query.page) || 1);
+  const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+  return { page, limit, skip: (page - 1) * limit };
+}
 
-  if (query.publisherName) {
-    filter.publisherName = new RegExp(query.publisherName, "i");
+async function getPublishers(user, query) {
+  const filter = user.role === 'admin' ? {} : { createdBy: user.id };
+  if (query.search) {
+    const regex = new RegExp(escapeRegex(query.search), 'i');
+    filter.$or = [{ name: regex }, { poc: regex }, { agencyPoc: regex }];
   }
-
-  // ─────────────────────────────────────────────
-  // Custom Date Range
-  // ─────────────────────────────────────────────
-  // ─────────────────────────────────────────────
-  // Custom Date Range
-  // ─────────────────────────────────────────────
+  if (query.market) filter.market = query.market;
+  if (query.status) filter.status = query.status;
+  if (user.role === 'admin' && query.userId) {
+    if (!mongoose.isValidObjectId(query.userId)) throw fail('Invalid user ID', 400);
+    filter.createdBy = query.userId;
+  }
   if (query.startDate || query.endDate) {
-    filter.contactDate = {};
-
-    // Start Date
-    if (query.startDate) {
-      filter.contactDate.$gte = new Date(query.startDate);
-    }
-
-    // End Date
+    filter.createdAt = {};
+    if (query.startDate) filter.createdAt.$gte = new Date(query.startDate);
     if (query.endDate) {
       const end = new Date(query.endDate);
-
       end.setHours(23, 59, 59, 999);
-
-      filter.contactDate.$lte = end;
+      filter.createdAt.$lte = end;
     }
   }
+  const { page, limit, skip } = pagination(query);
+  const allowedSort = ['name', 'market', 'status', 'createdAt', 'updatedAt'];
+  const sortBy = allowedSort.includes(query.sortBy) ? query.sortBy : 'createdAt';
+  const result = await listPublishers(filter, {
+    skip,
+    limit,
+    sort: { [sortBy]: query.sortOrder === 'asc' ? 1 : -1 }
+  });
+  return { ...result, page, limit };
+}
 
-  // ─────────────────────────────────────────────
-  // Quick Date Ranges
-  // ─────────────────────────────────────────────
+async function getPublisher(user, id) {
+  validId(id);
+  const publisher = await findPublisherById(id);
+  if (!publisher || !canAccess(user, publisher)) throw fail('Publisher not found', 404);
+  return publisher;
+}
 
-  if (query.range && query.range !== "custom") {
-    const now = new Date();
+async function addPublisher(user, data) {
+  return createPublisher({ ...data, createdBy: user.id, updatedBy: user.id });
+}
 
-    let startDate = new Date();
+async function editPublisher(user, id, data) {
+  const publisher = await getPublisher(user, id);
+  if (!canAccess(user, publisher)) throw fail('Publisher not found', 404);
+  return updatePublisher(id, { ...data, updatedBy: user.id });
+}
 
-    // Last 7 Days
-    if (query.range === "last7days") {
-      startDate.setDate(now.getDate() - 7);
-    }
-
-    // Last 30 Days
-    if (query.range === "last30days") {
-      startDate.setDate(now.getDate() - 30);
-    }
-
-    // This Month
-    if (query.range === "thisMonth") {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-
-    filter.contactDate = {
-      $gte: startDate,
-      $lte: now,
-    };
+async function removePublisher(user, id) {
+  if (user.role !== 'admin') throw fail('Admin access required', 403);
+  validId(id);
+  const publisher = await findPublisherById(id);
+  if (!publisher) throw fail('Publisher not found', 404);
+  if (await countOffers({ publisherId: id })) {
+    throw fail('Publisher cannot be deleted while offers are linked to it', 409);
   }
+  return deletePublisher(id);
+}
 
-  return filter;
-};
+async function getPublisherOffers(user, id, query) {
+  await getPublisher(user, id);
+  const { page, limit, skip } = pagination(query);
+  const filter = { publisherId: id };
+  if (user.role !== 'admin') filter.createdBy = user.id;
+  const result = await listOffers(filter, {
+    skip,
+    limit,
+    sort: { createdAt: -1 },
+    includePayment: user.role === 'admin'
+  });
+  return { ...result, page, limit };
+}
 
-/**
- * Paginated publishers
- */
-const getPublishers = async (filter, skip, limit) => {
-  const [data, total] = await Promise.all([
-    PublisherData.find(filter)
-      .sort({
-        createdAt: -1,
-      })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-
-    PublisherData.countDocuments(filter),
-  ]);
-
-  return {
-    data,
-    total,
-  };
-};
-
-module.exports = {
-  buildFilter,
-  getPublishers,
-};
+module.exports = { getPublishers, getPublisher, addPublisher, editPublisher, removePublisher, getPublisherOffers };

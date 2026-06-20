@@ -1,21 +1,24 @@
 {
   "name": "publisher-dashboard-backend",
   "version": "1.0.0",
-  "description": "Admin dashboard backend for publisher onboarding tracking",
-  "main": "src/app.js",
+  "description": "Fresh production-ready backend for publisher dashboard",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed-admin": "node src/seeds/admin.seed.js"
   },
   "dependencies": {
-    "axios": "^1.6.7",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
+    "exceljs": "^4.3.0",
     "express": "^4.18.2",
-    "googleapis": "^144.0.0",
-    "mongoose": "^8.1.1",
-    "morgan": "^1.10.0",
-    "node-cron": "^3.0.3"
+    "joi": "^17.9.2",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^8.9.0",
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"
