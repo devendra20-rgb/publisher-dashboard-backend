@@ -15,7 +15,7 @@ loadEnv();
 
 const app = express();
 
-const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+const allowedOrigins = (process.env.FRONTEND_URL || 'https://publisher-dashboard-frontend.onrender.com/')
   .split(',')
   .map((origin) => origin.trim());
 app.use(cors({
